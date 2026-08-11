@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 import librosa
 import numpy as np
 import soundfile as sf
-import torch
 from dotenv import load_dotenv
 from faster_whisper import WhisperModel
 from flask import Flask, jsonify, request, send_from_directory
@@ -41,9 +40,10 @@ users_collection = db["User"]
 
 
 TARGET_RATE = 16000
-device = "cuda" if torch.cuda.is_available() else "cpu"
-compute_type = "float16" if device == "cuda" else "int8"
-model = WhisperModel("base", device=device, compute_type=compute_type)
+# Render's free instances do not provide a GPU.  Using CPU INT8 avoids the
+# multi-gigabyte CUDA/PyTorch dependency and keeps the service within the
+# free-tier resource envelope.
+model = WhisperModel("base", device="cpu", compute_type="int8")
 
 
 def process_audio_file(file):
@@ -71,9 +71,6 @@ def process_audio_file(file):
             vad_parameters=dict(min_silence_duration_ms=500),
         )
         transcription = " ".join(segment.text for segment in segments).strip()
-
-        if device == "cuda":
-            torch.cuda.empty_cache()
 
         return transcription, None
     except Exception as error:
