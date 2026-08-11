@@ -19,7 +19,11 @@ from pymongo import MongoClient
 
 load_dotenv()
 google_key = os.getenv("GOOGLE_KEY")
-app = Flask(__name__, static_folder="static", static_url_path="")
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+# Static files are served explicitly below.  Registering Flask's automatic
+# static route at "/" would intercept client-side paths such as "/signup"
+# and return a 404 before the React fallback can run.
+app = Flask(__name__, static_folder=None)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 googleClient = genai.Client(api_key=google_key)
@@ -291,11 +295,11 @@ def agent():
 @app.route('/<path:path>')
 def serve_frontend(path):
     """Serve the built React application and support client-side routes."""
-    index_path = os.path.join(app.static_folder, 'index.html')
+    index_path = os.path.join(FRONTEND_DIR, 'index.html')
     if os.path.exists(index_path):
-        if path and os.path.exists(os.path.join(app.static_folder, path)):
-            return send_from_directory(app.static_folder, path)
-        return send_from_directory(app.static_folder, 'index.html')
+        if path and os.path.isfile(os.path.join(FRONTEND_DIR, path)):
+            return send_from_directory(FRONTEND_DIR, path)
+        return send_from_directory(FRONTEND_DIR, 'index.html')
 
     return jsonify({"message": "Linguofy API is running"})
 
