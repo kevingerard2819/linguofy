@@ -22,7 +22,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Some legacy audio dependencies still import ``pkg_resources`` while building.
+# Keep a compatible setuptools release available and disable isolated builds so
+# that those packages use it instead of the newest build environment.
+RUN pip install --no-cache-dir --upgrade "setuptools<81" wheel \
+    && pip install --no-cache-dir --no-build-isolation -r requirements.txt
 
 COPY backend/ ./
 COPY --from=frontend-builder /app/frontend/dist ./static
