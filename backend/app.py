@@ -55,10 +55,13 @@ users_collection = db["User"]
 
 
 TARGET_RATE = 16000
+WHISPER_MODEL = os.getenv("WHISPER_MODEL", "tiny")
 # Render's free instances do not provide a GPU.  Using CPU INT8 avoids the
 # multi-gigabyte CUDA/PyTorch dependency and keeps the service within the
-# free-tier resource envelope.
-model = WhisperModel("base", device="cpu", compute_type="int8")
+# free-tier resource envelope.  The tiny model is also fast enough to avoid
+# requests piling up on the free instance; deployments can opt into a larger
+# model with WHISPER_MODEL when they have more CPU available.
+model = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
 
 
 def process_audio_file(file):
@@ -82,8 +85,10 @@ def process_audio_file(file):
 
         sf.write(temp_wav_path, audio_data, TARGET_RATE)
         segments, info = model.transcribe(
-            temp_wav_path, beam_size=5, vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=500),
+            temp_wav_path,
+            beam_size=1,
+            vad_filter=False,
+            condition_on_previous_text=False,
         )
         transcription = " ".join(segment.text for segment in segments).strip()
 

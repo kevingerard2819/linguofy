@@ -107,6 +107,14 @@
 .transcription-box h3{
     color: #00aaff;
 }
+
+.transcription-status {
+    min-height: 1.5rem;
+    margin: 0.75rem 0 0;
+    color: #b8c8ff;
+    font-size: 0.9rem;
+    text-align: center;
+}
 .button-container {
     display: flex;
     gap: 20px;

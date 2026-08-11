@@ -5,7 +5,9 @@ import { apiUrl } from "../api";
 
 const LandingPage = () => {
     const [isRecording, setIsRecording] = useState(false);
+    const [isTranscribing, setIsTranscribing] = useState(false);
     const [transcription, setTranscription] = useState("");
+    const [transcriptionStatus, setTranscriptionStatus] = useState("");
     const [microphoneAllowed, setMicrophoneAllowed] = useState(false);
     const [selectedModel, setSelectedModel] = useState("custom");
 
@@ -15,13 +17,18 @@ const LandingPage = () => {
     const mediaStreamRef = useRef(null);
     const animationFrameRef = useRef(null);
     const mediaRecorderRef = useRef(null);
-    const stopIntervalRef = useRef(null);
     const chunksRef = useRef([]);
 
     const sendAudioToServer = async (audioBlob, extension) => {
-        console.log("Sending blob to server, size:", audioBlob.size, "Extension:", extension);
+        if (audioBlob.size === 0) {
+            setTranscriptionStatus("No audio was recorded. Please try again.");
+            return;
+        }
+
         const formData = new FormData();
         formData.append("file", audioBlob, `recording.${extension}`);
+        setIsTranscribing(true);
+        setTranscriptionStatus("Transcribing your recording…");
 
         try {
             const response = await fetch(apiUrl("/transcribe"), {
@@ -29,14 +36,21 @@ const LandingPage = () => {
                 body: formData,
             });
             const data = await response.json();
-            if (data.transcription) {
-                console.log("Transcription received:", data.transcription);
-                setTranscription((prev) => prev + " " + data.transcription);
+            if (!response.ok) {
+                throw new Error(data.error || "The transcription request failed.");
+            }
+
+            if (typeof data.transcription === "string" && data.transcription.trim()) {
+                setTranscription((prev) => `${prev} ${data.transcription}`.trim());
+                setTranscriptionStatus("Transcription complete.");
             } else {
-                console.log("No transcription in response:", data);
+                setTranscriptionStatus("No speech was detected in that recording.");
             }
         } catch (error) {
             console.error("Error sending audio to server:", error);
+            setTranscriptionStatus(`Transcription failed: ${error.message}`);
+        } finally {
+            setIsTranscribing(false);
         }
     };
 
@@ -86,16 +100,12 @@ const LandingPage = () => {
             };
 
 
+            // Keep one complete WebM recording.  Splitting and uploading it
+            // every three seconds creates overlapping requests that overwhelm
+            // a free CPU-only deployment and can produce invalid media chunks.
             mediaRecorderRef.current.start();
             setIsRecording(true);
-
-
-            stopIntervalRef.current = setInterval(() => {
-                if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-                    mediaRecorderRef.current.stop();
-                    mediaRecorderRef.current.start();
-                }
-            }, 3000);
+            setTranscriptionStatus("Recording… press Stop Recording when you are finished.");
 
             startVisualization();
         } catch (error) {
@@ -105,10 +115,6 @@ const LandingPage = () => {
     };
 
     const stopRecording = () => {
-
-        if (stopIntervalRef.current) {
-            clearInterval(stopIntervalRef.current);
-        }
 
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
             mediaRecorderRef.current.stop();
@@ -162,6 +168,10 @@ const LandingPage = () => {
     };
 
     const handleToggleRecording = () => {
+        if (isTranscribing) {
+            return;
+        }
+
         if (isRecording) {
             stopRecording();
         } else {
@@ -246,8 +256,9 @@ const LandingPage = () => {
                 <button
                     onClick={handleToggleRecording}
                     className={`recordButton ${isRecording ? 'recording' : ''}`}
+                    disabled={isTranscribing}
                 >
-                    {isRecording ? 'Stop Recording' : 'Start Recording'}
+                    {isTranscribing ? 'Transcribing…' : isRecording ? 'Stop Recording' : 'Start Recording'}
                 </button>
             </div> */}
             <div className="visualizer-container" style={{ flexDirection: "column" }}>
@@ -268,6 +279,11 @@ const LandingPage = () => {
                         readOnly
                         placeholder="Transcription will appear here..."
                     />
+                    {transcriptionStatus && (
+                        <p className="transcription-status" role="status">
+                            {transcriptionStatus}
+                        </p>
+                    )}
                     <div className="button-container">
                         <button
                             onClick={handleClearTranscription}
