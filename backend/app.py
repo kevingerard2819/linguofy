@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 from datetime import datetime, timedelta
+from urllib.parse import quote_plus
 
 import librosa
 import numpy as np
@@ -35,8 +36,18 @@ MONGOUSER = os.getenv("MONGOUSER")
 MONGOPASS = os.getenv("MONGOPASS")
 mongoURL = os.getenv("MONGO_URL")
 
+# Prefer separately configured credentials when present. This avoids issues
+# from provider secret fields interpreting a complete URI, while retaining
+# MONGO_URL support for local development and other deployments.
+if MONGOUSER and MONGOPASS:
+    mongoURL = (
+        f"mongodb+srv://{quote_plus(MONGOUSER)}:{quote_plus(MONGOPASS)}"
+        "@cluster0.psm6sv6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+    )
+
 if not mongoURL:
-    mongoURL = f"mongodb+srv://{MONGOUSER}:{MONGOPASS}@cluster0.v1pdg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+    raise RuntimeError("Set MONGO_URL or both MONGOUSER and MONGOPASS.")
+
 bcrypt = Bcrypt()
 client = MongoClient(mongoURL)
 db = client["LinguofyDB"]
