@@ -2,7 +2,8 @@ import hashlib
 import io
 import json
 import os
-from datetime import datetime
+import tempfile
+from datetime import datetime, timedelta
 
 import librosa
 import numpy as np
@@ -10,7 +11,7 @@ import soundfile as sf
 import torch
 from dotenv import load_dotenv
 from faster_whisper import WhisperModel
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS
 from google import genai
@@ -19,12 +20,12 @@ from pymongo import MongoClient
 
 load_dotenv()
 google_key = os.getenv("GOOGLE_KEY")
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 googleClient = genai.Client(api_key=google_key)
 agent_cache = {}
-CACHE_TTL = 360
+CACHE_TTL = timedelta(minutes=6)
 
 
 MONGOUSER = os.getenv("MONGOUSER")
@@ -42,12 +43,6 @@ compute_type = "float16" if device == "cuda" else "int8"
 model = WhisperModel("base", device=device, compute_type=compute_type)
 
 
-def handle_cors():
-    """Handle CORS preflight requests."""
-    if request.method == "OPTIONS":
-        return add_cors_headers(jsonify({"status": "ok"}))
-
-
 def process_audio_file(file):
     """Process audio file and return transcription."""
     try:
@@ -62,17 +57,27 @@ def process_audio_file(file):
     if len(audio_data.shape) > 1:
         audio_data = audio_data[:, 0]
 
-    temp_wav_path = "temp_audio.wav"
-    sf.write(temp_wav_path, audio_data, TARGET_RATE)
+    temp_wav_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+            temp_wav_path = temp_file.name
 
-    segments, info = model.transcribe(
-        temp_wav_path, beam_size=5, vad_filter=True, vad_parameters=dict(min_silence_duration_ms=500))
-    transcription = " ".join([segment.text for segment in segments]).strip()
+        sf.write(temp_wav_path, audio_data, TARGET_RATE)
+        segments, info = model.transcribe(
+            temp_wav_path, beam_size=5, vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500),
+        )
+        transcription = " ".join(segment.text for segment in segments).strip()
 
-    if device == "cuda":
-        torch.cuda.empty_cache()
+        if device == "cuda":
+            torch.cuda.empty_cache()
 
-    return transcription, None
+        return transcription, None
+    except Exception as error:
+        return None, f"Error transcribing audio: {error}"
+    finally:
+        if temp_wav_path and os.path.exists(temp_wav_path):
+            os.remove(temp_wav_path)
 
 
 def get_agent_response(prompt, cache_data_str):
@@ -95,16 +100,6 @@ def get_agent_response(prompt, cache_data_str):
     return None, None, None
 
 
-@app.after_request
-def add_cors_headers(response):
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    response.headers.add("Access-Control-Allow-Headers",
-                         "Content-Type,Authorization")
-    response.headers.add("Access-Control-Allow-Methods",
-                         "GET,POST,PUT,DELETE,OPTIONS")
-    return response
-
-
 def read_audio_file(file):
     if file.filename.lower().endswith('.webm'):
         seg = AudioSegment.from_file(file, format="webm")
@@ -115,14 +110,13 @@ def read_audio_file(file):
     return sf.read(file)
 
 
-@app.route('/', methods=['GET'])
-def test():
-    return "app.py is working"
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "ok"})
 
 
-@app.route("/signup", methods=['POST', 'OPTION'])
+@app.route("/signup", methods=['POST'])
 def signup():
-    handle_cors()
     data = request.get_json() or {}
     email = data.get("email")
     password = data.get("password")
@@ -136,9 +130,8 @@ def signup():
     return jsonify({"message": "User created successfully"}), 201
 
 
-@app.route("/login", methods=['POST', 'OPTION'])
+@app.route("/login", methods=['POST'])
 def login():
-    handle_cors()
     data = request.get_json() or {}
     email = data.get("email")
     password = data.get("password")
@@ -150,9 +143,8 @@ def login():
     return jsonify({"message": "Login successful", "userID": str(user["_id"])}), 200
 
 
-@app.route('/transcribe', methods=['POST', 'OPTION'])
+@app.route('/transcribe', methods=['POST'])
 def transcribe():
-    handle_cors()
     if 'file' not in request.files:
         return jsonify({"error": "No file provided"}), 400
 
@@ -168,14 +160,13 @@ def transcribe():
 def get_summary(text):
     response = googleClient.models.generate_content(
         model="gemini-2.0-flash",
-        contents=f"{text}/n give a summary about this coversation, remove weird word, such as: you, thank you for watching the video,  ..., make the conversation make more sense. Response with the format: Transcription: ...  Summary: ... . Don't add any extra word"
+        contents=f"{text}\nGive a summary of this conversation. Remove filler and obvious transcription errors, then make the conversation coherent. Respond only in this format: Transcription: ... Summary: ..."
     )
     return response.text
 
 
-@app.route('/save_transcription', methods=['POST', 'OPTION'])
+@app.route('/save_transcription', methods=['POST'])
 def save_transcription():
-    handle_cors()
     data = request.get_json() or {}
     transcribed_text = data.get("transcription")
     email = data.get("email")
@@ -202,9 +193,8 @@ def save_transcription():
     return jsonify({"Summary": summary}), 200
 
 
-@app.route('/get_history', methods=['POST', 'OPTION'])
+@app.route('/get_history', methods=['POST'])
 def get_history():
-    handle_cors()
     data = request.get_json() or {}
     email = data.get("email")
 
@@ -238,9 +228,8 @@ def update_history():
     return jsonify({"error": "Invalid request"}), 400
 
 
-@app.route('/translate', methods=['POST', 'OPTION'])
+@app.route('/translate', methods=['POST'])
 def translate():
-    handle_cors()
     data = request.get_json() or {}
     transcribed_text = data.get("transcription")
 
@@ -249,16 +238,15 @@ def translate():
 
     translation = googleClient.models.generate_content(
         model="gemini-2.0-flash",
-        contents=f"{transcribed_text}. /n Translate this to English. No extra text, just translation")
+        contents=f"{transcribed_text}\nTranslate this to English. Return only the translation.")
 
     if translation.text:
         return jsonify({"Translation": translation.text}), 200
     return jsonify({"Translation": "No translation avaiable"}), 400
 
 
-@app.route('/agenttext', methods=['POST', 'OPTION'])
+@app.route('/agenttext', methods=['POST'])
 def agenttext():
-    handle_cors()
     data = request.get_json()
 
     if not data or 'prompt' not in data:
@@ -279,7 +267,6 @@ def agenttext():
 
 @app.route('/agent', methods=['POST', 'OPTIONS'])
 def agent():
-    handle_cors()
     if 'file' not in request.files:
         return jsonify({"error": "No file provided"}), 400
 
@@ -300,5 +287,18 @@ def agent():
     return jsonify({"answer": "Unable to provide the answer. Please ask again!", "question": transcription}), 400
 
 
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_frontend(path):
+    """Serve the built React application and support client-side routes."""
+    index_path = os.path.join(app.static_folder, 'index.html')
+    if os.path.exists(index_path):
+        if path and os.path.exists(os.path.join(app.static_folder, path)):
+            return send_from_directory(app.static_folder, path)
+        return send_from_directory(app.static_folder, 'index.html')
+
+    return jsonify({"message": "Linguofy API is running"})
+
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', '5000')), debug=False)

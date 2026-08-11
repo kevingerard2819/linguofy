@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import logo from "../assets/logo.svg";
 import "./Navbar.css";
+import { apiUrl } from "../api";
 
 const Navbar = () => {
     const [menuOpen, setMenuOpen] = useState(false);
@@ -19,7 +20,7 @@ const Navbar = () => {
 
     useEffect(() => {
         if (userEmail) {
-            fetch("http://127.0.0.1:5000/get_history", {
+            fetch(apiUrl("/get_history"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email: userEmail }),

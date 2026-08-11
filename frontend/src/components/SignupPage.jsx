@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./SignupPage.css";
+import { apiUrl } from "../api";
 
 const SignupPage = () => {
     const [email, setEmail] = useState("");
@@ -16,7 +17,7 @@ const SignupPage = () => {
         setSuccess("");
 
         try {
-            await axios.post("http://127.0.0.1:5000/signup", { email, password });
+            await axios.post(apiUrl("/signup"), { email, password });
             setSuccess("Account created successfully! Redirecting to login...");
             setTimeout(() => navigate("/"), 2000);  
         } catch (err) {

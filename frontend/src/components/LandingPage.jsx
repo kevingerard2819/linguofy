@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import logo from "../assets/logo.svg";
 import "./LandingPage.css";
+import { apiUrl } from "../api";
 
 const LandingPage = () => {
     const [isRecording, setIsRecording] = useState(false);
@@ -23,7 +24,7 @@ const LandingPage = () => {
         formData.append("file", audioBlob, `recording.${extension}`);
 
         try {
-            const response = await fetch("http://127.0.0.1:5000/transcribe", {
+            const response = await fetch(apiUrl("/transcribe"), {
                 method: "POST",
                 body: formData,
             });
@@ -187,7 +188,7 @@ const LandingPage = () => {
 
     const handleTranslate = async () => {
         try {
-            const response = await fetch("http://127.0.0.1:5000/translate", {
+            const response = await fetch(apiUrl("/translate"), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -213,7 +214,7 @@ const LandingPage = () => {
     const handleSaveTranscription = async () => {
         try {
             const email = sessionStorage.getItem('email');
-            const response = await fetch("http://127.0.0.1:5000/save_transcription", {
+            const response = await fetch(apiUrl("/save_transcription"), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

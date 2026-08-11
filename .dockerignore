@@ -1,0 +1,9 @@
+.git
+.DS_Store
+**/.DS_Store
+**/.env
+**/.venv
+**/__pycache__
+**/node_modules
+**/dist
+backend/temp_audio.wav

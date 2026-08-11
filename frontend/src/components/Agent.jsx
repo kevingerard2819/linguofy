@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import './Agent.css';
 import { useEffect } from 'react';
 import { FaVolumeUp, FaStop } from 'react-icons/fa';
+import { apiUrl } from '../api';
 
 
 const Agent = () => {
@@ -92,7 +93,7 @@ const Agent = () => {
         formData.append("file", audioBlob, `recording.${extension}`);
 
         try {
-            const response = await fetch("http://127.0.0.1:5000/agent", {
+            const response = await fetch(apiUrl("/agent"), {
                 method: "POST",
                 body: formData,
             });
@@ -124,7 +125,7 @@ const Agent = () => {
         ]);
         setPrompt("");
         try {
-            const response = await fetch("http://127.0.0.1:5000/agenttext", {
+            const response = await fetch(apiUrl("/agenttext"), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
@@ -231,6 +232,5 @@ const Agent = () => {
 };
 
 export default Agent;
-
 
 

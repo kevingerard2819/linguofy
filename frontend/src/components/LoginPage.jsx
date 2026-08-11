@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./LoginPage.css";
+import { apiUrl } from "../api";
 
 const LoginPage = () => {
     const [email, setEmail] = useState("");
@@ -14,7 +15,7 @@ const LoginPage = () => {
         setError(""); 
 
         try {
-            const response = await axios.post("http://127.0.0.1:5000/login", { email, password });
+            const response = await axios.post(apiUrl("/login"), { email, password });
             sessionStorage.setItem("UserID", response.data.userID);
             sessionStorage.setItem('email', email)
             navigate("/LandingPage");

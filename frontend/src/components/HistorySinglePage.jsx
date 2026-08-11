@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import "./HistorySinglePage.css";
+import { apiUrl } from "../api";
 
 const SingleHistoryEntry = () => {
     const { timestamp } = useParams();
@@ -13,7 +14,7 @@ const SingleHistoryEntry = () => {
 
     useEffect(() => {
         if (userEmail && timestamp) {
-            fetch("http://127.0.0.1:5000/get_history", {
+            fetch(apiUrl("/get_history"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email: userEmail }),
@@ -30,7 +31,7 @@ const SingleHistoryEntry = () => {
     }, [userEmail, timestamp]);
 
     const handleSave = async () => {
-        const res = await fetch("http://127.0.0.1:5000/update_history", {
+        const res = await fetch(apiUrl("/update_history"), {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

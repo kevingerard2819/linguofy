@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: linguofy
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: GOOGLE_KEY
+        sync: false
+      - key: MONGOUSER
+        sync: false
+      - key: MONGOPASS
+        sync: false

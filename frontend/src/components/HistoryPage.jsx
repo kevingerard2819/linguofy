@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import "./HistoryPage.css";
+import { apiUrl } from "../api";
 
 const SavedTranscriptPage = () => {
     const [history, setHistory] = useState({});
@@ -16,7 +17,7 @@ const SavedTranscriptPage = () => {
 
     const fetchHistory = async () => {
         try {
-            const response = await fetch("http://127.0.0.1:5000/get_history", {
+            const response = await fetch(apiUrl("/get_history"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email: userEmail }),
@@ -35,7 +36,7 @@ const SavedTranscriptPage = () => {
 
     const handleSave = async (timestamp) => {
         try {
-            const response = await fetch("http://127.0.0.1:5000/update_history", {
+            const response = await fetch(apiUrl("/update_history"), {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
