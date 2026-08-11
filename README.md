@@ -80,8 +80,7 @@ Create `backend/.env` and add your credentials:
 
 ```env
 GOOGLE_KEY=your_google_ai_api_key
-MONGOUSER=your_mongodb_username
-MONGOPASS=your_mongodb_password
+MONGO_URL=mongodb+srv://your_mongodb_username:your_password@your-cluster.mongodb.net/?retryWrites=true&w=majority
 ```
 
 > `backend/.env` is intentionally ignored by Git. Never commit real API keys or database passwords.

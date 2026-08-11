@@ -8,7 +8,5 @@ services:
     envVars:
       - key: GOOGLE_KEY
         sync: false
-      - key: MONGOUSER
-        sync: false
-      - key: MONGOPASS
+      - key: MONGO_URL
         sync: false

@@ -30,7 +30,10 @@ CACHE_TTL = timedelta(minutes=6)
 
 MONGOUSER = os.getenv("MONGOUSER")
 MONGOPASS = os.getenv("MONGOPASS")
-mongoURL = f"mongodb+srv://{MONGOUSER}:{MONGOPASS}@cluster0.v1pdg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+mongoURL = os.getenv("MONGO_URL")
+
+if not mongoURL:
+    mongoURL = f"mongodb+srv://{MONGOUSER}:{MONGOPASS}@cluster0.v1pdg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 bcrypt = Bcrypt()
 client = MongoClient(mongoURL)
 db = client["LinguofyDB"]
